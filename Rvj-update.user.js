@@ -1,8 +1,7 @@
 // ==UserScript==
-// @name         RVJ Modpack v14 FINAL (Server Safe)
+// @name         RVJ Modpack v14.3 (Connection Safe)
 // @namespace    http://tampermonkey.net/
-// @version      14.2
-// @description  Stable loader + server-safe injection + Stay support
+// @version      14.3
 // @match        *://mope.io/*
 // @grant        none
 // ==/UserScript==
@@ -12,92 +11,56 @@
 
 let injected = false;
 
-// Wait for actual game readiness
-function isGameReady() {
+// Wait for FULL connection (not just canvas)
+function isFullyConnected() {
     return document.readyState === "complete" &&
            document.querySelector("canvas") &&
-           window.WebSocket;
+           typeof window.WebSocket !== "undefined" &&
+           window.hasOwnProperty("game") // key fix (wait for client init)
 }
 
-// Inject into PAGE CONTEXT (this is the key fix)
-function injectToPage(code) {
-    const script = document.createElement("script");
-    script.textContent = code;
-    document.documentElement.appendChild(script);
-    script.remove();
+// Inject into page context
+function inject(code) {
+    const s = document.createElement("script");
+    s.textContent = code;
+    document.documentElement.appendChild(s);
+    s.remove();
 }
 
-// Main injector
+// Safe injector
 function injectMod() {
     if (injected) return;
     injected = true;
 
-    console.log("[RVJ] Injecting (server-safe)...");
+    console.log("[RVJ] Injecting AFTER connection...");
 
-    injectToPage(`
+    inject(`
 
         (function() {
-            console.log("[RVJ] Running inside page context");
 
-            // ===== YOUR ORIGINAL MOD CODE STARTS HERE =====
+            // Delay inside page too (extra safety)
+            setTimeout(() => {
 
+                console.log("[RVJ] Running mod safely");
 
-            /* PASTE YOUR ORIGINAL MOD CODE BELOW THIS LINE */
+                /* === YOUR ORIGINAL MOD CODE HERE === */
 
-
-
-            // ===== YOUR ORIGINAL MOD CODE ENDS HERE =====
+            }, 1000);
 
         })();
 
     `);
 }
 
-// Reinjection system
-function watchDOM() {
-    const observer = new MutationObserver(() => {
-        if (!injected && isGameReady()) {
-            console.log("[RVJ] Reinjection triggered");
-            injectMod();
-        }
-    });
-
-    observer.observe(document, { childList: true, subtree: true });
-}
-
-// Manual inject button
-function createButton() {
-    const btn = document.createElement("button");
-    btn.innerText = "Inject RVJ";
-    btn.style.position = "fixed";
-    btn.style.top = "20px";
-    btn.style.right = "20px";
-    btn.style.zIndex = "9999";
-    btn.style.padding = "10px";
-    btn.style.background = "black";
-    btn.style.color = "white";
-    btn.style.border = "1px solid white";
-
-    btn.onclick = () => {
-        injected = false;
-        injectMod();
-    };
-
-    document.body.appendChild(btn);
-}
-
 // Wait loop
-function waitLoop() {
-    if (isGameReady()) {
+function wait() {
+    if (isFullyConnected()) {
         injectMod();
     } else {
-        setTimeout(waitLoop, 200);
+        setTimeout(wait, 300);
     }
 }
 
-// Start
-createButton();
-watchDOM();
-waitLoop();
+wait();
 
 })();
